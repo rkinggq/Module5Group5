@@ -1,0 +1,14 @@
+---
+title: "sharks"
+author: "Regan King, Helena Ebling, Abby Guadette"
+date: "2024-10-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+# 1. Create a vector that lists the .csv files contained in the directory
+sharks <- list.files(path ="/Users/reganking/Downloads/shark_plots", pattern = "*.csv", full.names = TRUE)
+```
+
