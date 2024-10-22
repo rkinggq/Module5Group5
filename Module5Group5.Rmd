@@ -1,0 +1,63 @@
+---
+title: "Module5Group5"
+author: "Helena Ebeling"
+date: "2024-10-22"
+output: html_document
+---
+#load libraries
+```{r setup, include=FALSE}
+library(abind)
+library(geomorph)
+library(tidyverse)
+library(phytools)
+
+```
+
+```{r cars}
+f <- list.files("shark_points",full.names = T,pattern=".csv")
+
+xy <- read_csv(f,id="file") %>% 
+  select(file,X,Y) %>% 
+  mutate(Y=abs(Y-max(Y))) %>% 
+  mutate(file_name=gsub("*_.csv","",basename(file))) %>% 
+  left_join(shark_dat) 
+
+shark_dat <- read_csv("shark_data.csv")
+
+
+ldk_l <- list()
+
+shark_sp <- xy$sp %>% unique
+
+for(i in shark_sp){
+  ldk_l[[i]] <- xy %>% 
+    filter(sp==i) %>% 
+    select(X,Y) %>% 
+    data.frame
+}
+
+names(ldk_l)
+
+ldk <-  abind(ldk_l, along=3)
+
+dimnames(ldk)[[3]] <-names(ldk_l)
+
+ldk[,,1:3] #the first few 
+
+ldk_al <- gpagen(ldk)
+
+```
+
+#Procrustes Analysis
+
+```{r pressure, echo=FALSE}
+gdf <- geomorph.data.frame(ldk_al,
+                             habitat=PCA$habitat
+)
+
+md <- morphol.disparity(coords ~ 1, groups= ~ habitat, data = gdf, iter = 10000, print.progress = FALSE)
+
+summary(md)
+```
+
+
