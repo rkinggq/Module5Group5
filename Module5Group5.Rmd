@@ -3,27 +3,35 @@ title: "Module5Group5"
 author: "Helena Ebeling"
 date: "2024-10-22"
 output: html_document
+bibliography: BIOL3140.bib
 ---
-#load libraries
 ```{r setup, include=FALSE}
 library(abind)
 library(geomorph)
 library(tidyverse)
 library(phytools)
-
 ```
 
-```{r cars}
+## Introduction
+Sharks, a group of over 500 species of cartilaginous fishes, exhibit a wide diversity in body shapes and locomotor modes. Previous research, including that of Thomson and Simanek (1977), identified distinct ecomorphological groups of sharks based on body shape, such as differences in caudal fin morphology and fin placement, which were linked to ecological and locomotor behaviors. Sternes and Shimada (2020) built upon this research, finding two main morphotypes, but did not explicitly explore the role of habitat (pelagic or benthic) in driving body shape evolution. The aim of this project is to investigate whether pelagic and benthic sharks have significantly different body shapes and if the rate of morphological evolution varies between these habitats. These questions are vital for understanding the macro-evolutionary events contributing to shark diversity, both in species and phenotypes. The project will utilize geometric morphometrics, involving the digitization of landmarks on shark images, to assess morphological disparity and evolutionary rates in a phylogenetic context.
+<center>
+
+## Methods
+In this study, we examined the body shape evolution of approximately 220 shark species from FishBase, classified as pelagic or benthic, to address whether evolutionary patterns differ between these habitats. To answer the research questions, we first digitized 14 homologous landmarks on shark images, ensuring a standardized dataset. Generalized Procrustes Analysis (GPA) was then performed to remove variation due to size, orientation, and position, isolating the shape differences for analysis. A Principal Component Analysis (PCA) was applied to visualize the major axes of shape variation, showing how pelagic and benthic species differ morphologically. Qualitative insights were drawn from observing the distribution of species across PCA components. Quantitatively, we assessed morphological disparity between habitats using Procrustes-aligned data, testing whether shape variation differed significantly between groups via a randomization test. Additionally, we compared the evolutionary rates of shape change between pelagic and benthic sharks using a phylogenetic approach. By integrating phylogenetic data and running simulations, we quantified the rates of evolution and performed a t-test to check for statistical significance. Visualizations, including scatter plots of PCA results and box plots of evolutionary rates, helped to clarify and present the patterns of shape variation and evolutionary dynamics between the two habitats. This comprehensive approach, combining qualitative observations with robust quantitative analyses, answered the research questions about morphological and evolutionary differences between pelagic and benthic sharks
+<center>
+
+
+## Results
+```{r, "Data Loading"}
 f <- list.files("shark_points",full.names = T,pattern=".csv")
 
-xy <- read_csv(f,id="file") %>% 
-  select(file,X,Y) %>% 
+xy <- read_csv(f,id="file_name") %>% 
+  select(file_name,X,Y) %>% 
   mutate(Y=abs(Y-max(Y))) %>% 
   mutate(file_name=gsub("*_.csv","",basename(file))) %>% 
-  left_join(shark_dat) 
+  left_join(shark_dat)
 
 shark_dat <- read_csv("shark_data.csv")
-
 
 ldk_l <- list()
 
@@ -42,15 +50,13 @@ ldk <-  abind(ldk_l, along=3)
 
 dimnames(ldk)[[3]] <-names(ldk_l)
 
-ldk[,,1:3] #the first few 
-
 ldk_al <- gpagen(ldk)
 
 ```
+The analyses generated superimposed landmark data from 220 shark species, allowing for a comparison of body shapes between pelagic and benthic species. The results revealed two distinct morphotypes, supporting previous findings by Sternes and Shimada (2020). Group A, consisting of elongate-bodied benthic sharks, exhibited significant morphological differences from Group B, made up of deeper-bodied pelagic sharks. 
 
-#Procrustes Analysis
-
-```{r pressure, echo=FALSE}
+#Morphological Disparity
+```{r, "Procrustes"}
 gdf <- geomorph.data.frame(ldk_al,
                              habitat=PCA$habitat
 )
@@ -58,6 +64,68 @@ gdf <- geomorph.data.frame(ldk_al,
 md <- morphol.disparity(coords ~ 1, groups= ~ habitat, data = gdf, iter = 10000, print.progress = FALSE)
 
 summary(md)
+
+# No significant morphological disparity, p>0.05.
+
 ```
 
+# Plotting PC's
+```{r, "PC's"}
+pca <- gm.prcomp(ldk_al$coords)
 
+pca$x %>% data.frame %>% select(Comp1,Comp2) %>% head
+
+PCA <- pca$x %>% 
+  data.frame %>% 
+  select(Comp1:Comp4) %>% 
+  mutate(sp=rownames(pca$x)) %>% 
+  left_join(shark_dat)
+
+PCA %>% 
+  ggplot(aes(Comp1,Comp2,col=habitat))+geom_point()
+```
+Principal Component Analysis (PCA) further highlighted these shape distinctions, where pelagic species generally showed more streamlined and deeper body forms, while benthic species tended toward more elongated shapes.
+ 
+# Rate of Morphological Evolution Between Habitats
+```{r, morph evo}
+phy2 <- keep.tip(phy,PCA$sp)
+
+gp_hab <- PCA$habitat
+names(gp_hab) <- PCA$sp
+
+er_fun <-function(x){
+  er <- compare.evol.rates(A=ldk_al$coords, phy=x,
+                           method="simulation",gp=gp_hab,print.progress = F)}
+
+er_l <- mclapply(phy2[1:500], er_fun, mc.cores = detectCores() -
+                   2)
+
+er <- lapply(er_l,function(x) {
+  er_ <- c(x$sigma.d.gp,x$sigma.d.ratio)
+  names(er_)[3] <-"ratio"
+  return(er_)}) %>% 
+  do.call(rbind,.) %>% 
+  data.frame
+
+t_test_result <- t.test(er)
+print(t_test_result)
+
+er %>% 
+  pivot_longer(benthic:pelagic) %>% 
+  ggplot(aes(name,value)) + geom_boxplot()
+
+plot(pca)
+```
+Key visualizations, including scatter plots from the PCA and box plots of evolutionary rates, clearly illustrated the differences in both morphology and evolutionary dynamics between these two groups. 
+
+## Discussion
+The results confirm that habitat has played a critical role in the evolution of shark body shape. Pelagic sharks have evolved significantly different body shapes compared to benthic sharks, with the former group adapting to a more streamlined, deeper body form suited to open-water environments. These findings align with earlier work by Thomson and Simanek (1977) and Sternes and Shimada (2020), who highlighted the connection between shark body shape and ecological niche. The study's novelty lies in its explicit quantitative comparison of pelagic and benthic habitats and the inclusion of phylogenetic data, which previous studies lacked. The analysis of evolutionary rates indicated that morphological changes occurred faster in pelagic species, suggesting that open-water environments exert stronger selective pressures on body shape evolution. This finding aligns with expectations of higher adaptation rates in pelagic habitats. The faster rate of morphological evolution in pelagic sharks could be attributed to greater ecological demands, such as the need for speed and efficiency in prey capture. These findings  provide strong evidence that habitat significantly influences shark body shape and evolutionary trajectories, and contributes to a broader understanding of how environmental factors drive morphological diversity across taxa.
+
+## Author Contributions
+Helena Ebeling wrote the code and the the Rmd document as well as reviewed all other writing portions of the project.
+Regan King and Abby Gaudette wrote the intro, results, and discussion as well as reviewed all of the code. Regan King also produced the bibliography
+
+## References
+Thomson, Keith Stewart. 1976. “On the Heterocercal Tail in Sharks.” Paleobiology 2 (1): 19–38.
+Thomson, Keith Stewart, and Dan E Simanek. 1977. “Body Form and Locomotion in Sharks.” American Zoologist 17 (2): 343–54.
+Sternes, Phillip C, and Kenshu Shimada. 2020. “Body Forms in Sharks (Chondrichthyes: Elasmobranchii) and Their Functional, Ecological, and Evolutionary Implications.” Zoology 140: 125799.
